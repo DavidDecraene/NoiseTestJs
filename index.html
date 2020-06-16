@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NoiseTest</title>
+  <link rel="stylesheet"  type="text/css"  href="css/main.css">
+  <script
+  src="https://code.jquery.com/jquery-3.3.1.min.js"
+  integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+  crossorigin="anonymous"></script>
+  <script type="text/javascript" src="./js/simplex-noise.js"></script>
+  <script type="text/javascript" src="./js/noise.samplers.js"></script>
+  <script type="text/javascript" src="js/tinycolor.js"></script>
+  <script type="text/javascript" src="./js/array2d.js"></script>
+  <script type="text/javascript" src="./js/canvas.js"></script>
+  <script type="text/javascript" src="./js/main.js"></script>
+  <script type="text/javascript">
+  $(document).ready(function() {
+    const $canvas1 = $('#canvas1');
+    let w = 64;
+    let h = 32;
+    const freq  = 1 / 40;
+    const simplex = new SimplexSampler('test');
+    let arr = new Array2D().forEach(w, h, (x, y, a) => {
+      const noise = simplex.getNoise(x* freq, y* freq);
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { color : color.toHexString() });
+    });
+    new Canvas(4, { createElement: true, w, h }).appendTo($canvas1).draw(arr.values);
+
+    const fbm = new FBMSampler(simplex);
+    arr = new Array2D().forEach(w, h, (x, y, a) => {
+      const noise = fbm.getNoise(x * freq, y * freq);
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { color : color.toHexString() });
+    });
+    const $canvas2 = $('#canvas2');
+    new Canvas(4, { createElement: true, w, h }).appendTo($canvas2).draw(arr.values);
+
+    const voronoi = new VoronoiSampler(simplex);
+    w = 128;
+    h = 128;
+    arr = new Array2D().forEach(w, h, (x, y, a) => {
+      ///const n1  = voronoi.voronoi2(x * freq, y * freq);
+      //const d = voronoi.voronoi(x * freq, y * freq);
+      //const distance = d.y - d.x;
+      //const n2 = 1 - smoothstep(0.0, 0.05 , distance);
+
+      const vd = voronoi.voronoiDistance(x * freq, y * freq);
+      const n = 1.0 - smoothstep(0.0,0.3, vd);
+      const color = tinycolor.fromRatio({ r: n, g: n, b: n });
+      a.setData(x, y, { color : color.toHexString() });
+    });
+    const $canvas3 = $('#canvas3');
+    new Canvas(4, { createElement: true, w, h }).appendTo($canvas3).draw(arr.values);
+  });
+
+  </script>
+</head>
+<body>
+<div id="canvas1" class="flex-stage"></div>
+<div id="canvas2" class="flex-stage"></div>
+<div id="canvas3" class="flex-stage"></div>
+
+</body>
+</html>

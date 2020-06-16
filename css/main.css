@@ -1,0 +1,8 @@
+.flex-stage {
+  display: flex;
+  margin-bottom: 5px;
+}
+
+.flex-stage canvas {
+  margin-right: 1px;
+}
