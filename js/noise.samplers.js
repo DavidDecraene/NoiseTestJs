@@ -6,6 +6,11 @@ function random2( p ) {
     return new Vector2(p.dot(a), p.dot(b)).sin().mult(43758.5453).fract();
 }
 
+function modulo(x, y) {
+  if (y == 0) return 0;
+  return x - y * Math.floor(x / y);
+}
+
 function clamp(x, a, b) {
   if(x < a) return a;
   if(x > b) return b;
@@ -63,6 +68,10 @@ class Vector2 {
     return new Vector2(Math.sqrt(this.x), Math.sqrt(this.y));
   }
 
+  modulo(other) {
+    return new Vector2(modulo(this.x, other.x), modulo(this.y, other.y));
+  }
+
   magnitude() {
     return Math.sqrt(this.x*this.x + this.y*this.y);
   }
@@ -81,6 +90,37 @@ class SimplexSampler {
   }
 }
 
+class SeamlessSampler {
+
+  constructor(noiseSampler, w, h) {
+    this.noiseSampler = noiseSampler;
+    this.Width = w;
+    this.Height = h;
+
+  }
+
+  getNoise(x, y) {
+
+       // Noise range
+       let x1 = -1, x2 = 2;
+       let y1 = -1, y2 = 2;
+       let dx = x2 - x1;
+       let dy = y2 - y1;
+
+       // Sample noise at smaller intervals
+       let s = x / this.Width;
+       let t = y / this.Height;
+
+       // Calculate our 4D coordinates
+       let nx = x1 + Math.cos (s*2*Math.PI) * dx/(2*Math.PI);
+       let ny = y1 + Math.cos (t*2*Math.PI) * dy/(2*Math.PI);
+       let nz = x1 + Math.sin (s*2*Math.PI) * dx/(2*Math.PI);
+       let nw = y1 + Math.sin (t*2*Math.PI) * dy/(2*Math.PI);
+
+       return this.noiseSampler.noise4D(nx, ny, nz, nw);
+    }
+}
+
 class VoronoiSampler {
   constructor(noiseSampler, options = {}) {
     this.noiseSampler = noiseSampler;
@@ -92,7 +132,7 @@ class VoronoiSampler {
     }, ... options };
   }
 
-voronoi2( x, y)
+voronoi2( x, y, seam)
 {
   const vectX = new Vector2(x, y);
   const p = vectX.floor();
@@ -103,7 +143,13 @@ voronoi2( x, y)
     for( let i=-1; i<=1; i++ )
     {
         const b = new Vector2(i, j);
-        const point = random2(p.add(b));
+        let cell = p.add(b); // if you wish to tile, pass a second vector2 and do modulo with it..
+        if (seam) {
+          cell = cell.modulo(seam);
+        }
+        // vector2 sizeInput
+        // cell = cell.modulo(sizeInput);
+        const point = random2(cell);
         const diff = b.add(point).sub(f);
         const dist = diff.magnitude();
 
@@ -124,6 +170,7 @@ voronoi( x, y)
     for( let i=-1; i<=1; i++ )
     {
         const b = new Vector2(i, j);
+
         const point = random2(p.add(b));
         const diff = b.add(point).sub(f);
         const d = diff.dot(diff);

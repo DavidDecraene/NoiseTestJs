@@ -46,20 +46,49 @@
       //const n2 = 1 - smoothstep(0.0, 0.05 , distance);
 
       const vd = voronoi.voronoiDistance(x * freq, y * freq);
-      const n = 1.0 - smoothstep(0.0,0.3, vd);
+      const n = 1.0 - smoothstep(0.0,0.1, vd);
       const color = tinycolor.fromRatio({ r: n, g: n, b: n });
       a.setData(x, y, { color : color.toHexString() });
     });
     const $canvas3 = $('#canvas3');
     new Canvas(4, { createElement: true, w, h }).appendTo($canvas3).draw(arr.values);
+
+    const seamless = new SeamlessSampler(new SimplexNoise('test'), 4, 4);
+    arr = new Array2D().forEach(w, h, (x, y, a) => {
+      const n = seamless.getNoise(x * 1/16 , y * 1/16);
+      const color = tinycolor.fromRatio({ r: n, g: n, b: n });
+      a.setData(x, y, { color : color.toHexString() });
+    });
+    const $canvas4 = $('#canvas4');
+    new Canvas(4, { createElement: true, w, h }).appendTo($canvas4).draw(arr.values);
+
+    arr = new Array2D().forEach(w, h, (x, y, a) => {
+      const n  = voronoi.voronoi2(x * 1/16, y  * 1/16, new Vector2(4, 4));
+      const color = tinycolor.fromRatio({ r: n, g: n, b: n });
+      a.setData(x, y, { color : color.toHexString() });
+    });
+    const $canvas5 = $('#canvas5');
+    new Canvas(4, { createElement: true, w, h }).appendTo($canvas5).draw(arr.values);
+
   });
 
   </script>
 </head>
 <body>
-<div id="canvas1" class="flex-stage"></div>
-<div id="canvas2" class="flex-stage"></div>
-<div id="canvas3" class="flex-stage"></div>
+<div id="canvas1" class="flex-stage">
+  <p>Simplex</p></div>
+<div id="canvas2" class="flex-stage">
+  <p>FBM</p>
+</div>
+<div id="canvas3" class="flex-stage">
+  <p>Voronoi Correct border width</p>
+</div>
+<div id="canvas4" class="flex-stage">
+  <p>Seamless Simplex Noise</p>
+</div>
+<div id="canvas5" class="flex-stage">
+  <p>Seamless Voronoi</p>
+</div>
 
 </body>
 </html>
