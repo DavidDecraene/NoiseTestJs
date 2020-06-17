@@ -79,6 +79,12 @@ class Vector2 {
   normalize() {
     return this.div(this.magnitude());
   }
+
+  distance(other) {
+    const dx = other.x - this.x;
+    const dy = other.y - this.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
 }
 
 class SimplexSampler {
@@ -122,8 +128,7 @@ class SeamlessSampler {
 }
 
 class VoronoiSampler {
-  constructor(noiseSampler, options = {}) {
-    this.noiseSampler = noiseSampler;
+  constructor( options = {}) {
     this.options = { ... {
       amplitude: 1,
       persistence: 0.5,
@@ -157,6 +162,38 @@ voronoi2( x, y, seam)
     }
 
     return m_dist;
+}
+
+voronoiCell( x, y)
+{
+  const vectX = new Vector2(x, y);
+  const p = vectX.floor();
+  const f = vectX.fract();
+  let m_dist  = 1000;
+    let res = new Vector2( 8.0, 8.0 );
+    let vec, centre;
+    for( let j=-1; j<=1; j++ )
+    for( let i=-1; i<=1; i++ )
+    {
+        const b = new Vector2(i, j); // grid neighbour
+        const cell = p.add(b);  // current grid location + relative grid.
+        // if you wish to tile, pass a second vector2 and do modulo with it..
+
+        // vector2 sizeInput
+        // cell = cell.modulo(sizeInput);
+        const point = random2(cell);
+        const diff = b.add(point).sub(f);
+        const dist = diff.magnitude();
+        if (dist < m_dist){
+          m_dist = dist;
+          centre = point;
+          vec = cell;// .add(p);
+        }
+
+        m_dist = Math.min(dist, m_dist);
+    }
+
+    return { v: vec, d: m_dist, c: centre };
 }
 
 voronoi( x, y)

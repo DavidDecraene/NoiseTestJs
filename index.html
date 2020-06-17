@@ -36,7 +36,7 @@
     const $canvas2 = $('#canvas2');
     new Canvas(4, { createElement: true, w, h }).appendTo($canvas2).draw(arr.values);
 
-    const voronoi = new VoronoiSampler(simplex);
+    const voronoi = new VoronoiSampler();
     w = 128;
     h = 128;
     arr = new Array2D().forEach(w, h, (x, y, a) => {
