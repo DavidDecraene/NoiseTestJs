@@ -10,6 +10,7 @@
   <script type="text/javascript" src="js/tinycolor.js"></script>
   <script type="text/javascript" src="./js/array2d.js"></script>
   <script type="text/javascript" src="./js/canvas.js"></script>
+  <script type="text/javascript" src="./js/terrain.js"></script>
   <script type="text/javascript" src="./js/main.js"></script>
   <script type="text/javascript">
     /*jshint esversion: 9 */
@@ -61,18 +62,20 @@
     }
 
     $(document).ready(function() {
-      const $canvas1 = $('#canvas1');
       let w = 256;
       let wLevel = 0;
       let h = 256;
       const freq = 1 / 8;
+      const freq2 = 1 / 60;
       let pr = 0;
       const simplex = new SimplexSampler('test');
       const fbm = new FBMSampler(simplex);
       const voronoi = new VoronoiSampler();
       const cellIndex = {};
+      const midpoint = new Vector2(w/2, h/2);
       const center = new Vector2(w/2 * freq, h/2 * freq);
       let arr = new Array2D().forEach(w, h, (x, y, a) => {
+        const vec = new Vector2(x, y);
         const cell = voronoi.voronoiCell(x * freq, y * freq);
         const coords = cell.v.x + '_' + cell.v.y;
         let existing = cellIndex[coords];
@@ -82,15 +85,24 @@
           if (cell.v.x <= 0 || cell.v.y <= 0) existing.type = 1;
           else  if (cell.v.x >= w  * freq  - 1 || cell.v.y >= h  * freq - 1) existing.type = 1;
           existing.noise = fbm.getNoise(cell.v.x, cell.v.y);
+          existing.noise = (existing.noise + (simplex.getNoise(x* freq2,y* freq2) - 0.3) ) * 2  / 3;
           const ratio = cell.v.distance(center) / center.x;
           const n = ((1 - ratio) * 2) - 1; // rescale from -1 to 1
           const height = existing.noise  + n + 1; // from -1 to 3
           existing.heightRatio = remap(height, 0, 3, 0, 1);
           existing.ratio = ratio;
         }
-        const data = { d: cell.d, cell: existing } ;
+        const pNoise  = simplex.getNoise(x* freq2,y* freq2);
+        const pN = (pNoise + existing.noise) / 2;
+        const nn = ((1 - existing.ratio) * 2) - 1; // rescale from -1 to 1
+        const nheight = pN  + nn + 1; // from -1 to 3
+        const nHeightRatio = remap(nheight, 0, 3, 0, 1);
+
+        const data = { d: cell.d, cell: existing, ratio: vec.distance(midpoint) * 2/w,
+          noise:  pNoise, heightRatio: nHeightRatio} ;
         a.setData(x, y,data);
       });
+      console.log(arr);
       arr.forEach(w, h, (x, y, a)  => {
         const data = a.getData(x, y);
         indexNeighbour(x, y, data.cell, 1, 0, cellIndex, arr);
@@ -150,21 +162,24 @@
         const cell = data.cell;
         let color;
         const isCenter = Math.abs(data.d) <= 0.1;
-        if (isCenter) {
-          color = tinycolor('red');
-        } else  if(cell.type == 1) {
-          color = tinycolor('blue');
+        if(cell.type == 1) {
+          if (cell.heightRatio < -0.2 && !cell.getNeighbours().find(n => n.type === 2)) color = tinycolor('darkblue');
+          else color = tinycolor('blue');
         } else  if(cell.type == 2) {
           color = tinycolor('yellow');
         }  else  if(cell.type == 3) {
+            cell.height = 0.2;
           color = tinycolor('orange');
         }  else  if(cell.type == 4) {
           color = tinycolor('steelblue');
         } else  if(cell.type == 5) {
+          cell.height = 5;
           color = tinycolor('white');
         } else  if(cell.type == 6) {
+          cell.height = 6;
           color = tinycolor('black');
         }  else  if(cell.type == 7) {
+          cell.height = 3.5;
           const n = cell.heightRatio;
           color = tinycolor.fromRatio({
             r: 1 - n,
@@ -173,11 +188,13 @@
           });
         } else  if(cell.type == 8) {
           color = tinycolor('magenta');
+              cell.height = 1.2;
         } else  if(cell.type == 9) {
           const oth = cell.getNeighbours().find(n => n.type !== 9);
           if (!oth && cell.heightRatio < 0.1) {
             color = tinycolor('steelblue');
           } else {
+              cell.height = 0.6;
 
             const n = Math.abs(cell.heightRatio);
             color = tinycolor.fromRatio({
@@ -187,6 +204,7 @@
             });
           }
         }  else if(cell.type == 10) {
+            cell.height = 1.6;
             color = tinycolor('darkgreen');
            }  else {
             // const n = cell.noise;
@@ -200,11 +218,54 @@
         data.color = color;
       });
       console.log(cellIndex);
+      const $canvas1 = $('#canvas1');
       new Canvas(4, {
         createElement: true,
         w,
         h
       }).appendTo($canvas1).draw(arr.values);
+      const $canvas2 = $('#canvas2');
+      new Canvas(4, { createElement: true, w: 128, h: 128 })
+      .appendTo($canvas2).draw(arr.values, d => {
+        const col = (d.noise + 1) / 2;
+        return tinycolor.fromRatio({
+          r: col,
+          g: col,
+          b: col
+        });
+      });
+
+      let ww = 16;
+      const ter = new Terrain(ww);
+      var display = document.getElementById('display');
+      var width = display.width = 1200;
+      var height = display.height = 800;
+      var ctx = display.getContext('2d');
+    ter.draw(ctx, width, height, (x, y) => {
+      const d = arr.getData(x, y);
+      const bh = d && d.cell.height ? (d.cell.height * (1 - d.ratio)) : 0;
+      return d ? (bh + d.cell.heightRatio) * 20: 0;
+    });
+
+    /**
+     * public float ElevationAtPoint(float x, float y)
+    {
+        int x1 = Mathf.Floor(x);
+        int x2 = Mathf.Ceiling(x);
+        int y1 = Mathf.Floor(y);
+        int y2 = Mathf.Ceiling(y);
+
+        float q11 = ElevationAtVertex(x1, y1);
+        float q12 = ElevationAtVertex(x1, y2);
+        float q21 = ElevationAtVertex(x2, y1);
+        float q22 = ElevationAtVertex(x2, y2);
+
+        float r1 = ((x2 - x) / (x2 - x1)) * q11 + ((x - x1) / (x2 - x1)) * q21;
+        float r2 = ((x2 - x) / (x2 - x1)) * q12 + ((x - x1) / (x2 - x1)) * q22;
+
+        return ((y2 - y) / (y2 - y1)) * r1 + ((y - y1) / (y2 - y1)) * r2;
+    }
+     */
 
     });
   </script>
@@ -214,6 +275,10 @@
   <div id="canvas1" class="flex-stage">
     <p>Sample</p>
   </div>
+    <div id="canvas2" class="flex-stage">
+      <p>Sample</p>
+    </div>
+  <canvas id='display' width='1' height='1' />
 
 </body>
 

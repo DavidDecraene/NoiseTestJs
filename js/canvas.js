@@ -38,7 +38,7 @@ class Canvas extends JQ  {
     }
   }
 
-  draw(pix){
+  draw(pix, colorFn){
 
       for(var x =0 ; x < pix.length; x++) {
         const row = pix[x];
@@ -48,7 +48,10 @@ class Canvas extends JQ  {
           if (!data) { continue; }
           const xR = x * this.scale ;
           const yR = y * this.scale ;
-          if (data.clear) {
+          if (colorFn) {
+            this.ctx.fillStyle = colorFn(data);
+            this.ctx.fillRect(xR, yR, this.scale, this.scale);
+          } else if (data.clear) {
             this.ctx.clearRect(xR, yR, this.scale, this.scale);
           } else {
             this.ctx.fillStyle = data.color;
