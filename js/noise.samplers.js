@@ -64,6 +64,10 @@ class Vector2 {
 
   }
 
+  equals(other) {
+    return this.x == other.x && this.y == other.y;
+  }
+
   sqrt() {
     return new Vector2(Math.sqrt(this.x), Math.sqrt(this.y));
   }
