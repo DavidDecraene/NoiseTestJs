@@ -35,6 +35,11 @@ class Canvas extends JQ  {
         .attr('height', this.scale  * this.height);
       this.canvas = this.$element.get(0);
       this.ctx = this.canvas.getContext("2d");
+    } else if (this.options.element) {
+      this.$element = this.options.element.attr('width', this.scale  * this.width)
+        .attr('height', this.scale  * this.height);
+      this.canvas = this.$element.get(0);
+      this.ctx = this.canvas.getContext("2d");
     }
   }
 
