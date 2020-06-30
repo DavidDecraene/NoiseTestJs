@@ -18,8 +18,8 @@
   function linearGradient(w, h) {
     return new Array2D().forEach(w, h, (x, y, a) => {
       const delta = y / h;
-      a.setData(x, y, { color: tinycolor.fromRatio({
-        noise: delta,
+      a.setData(x, y, {
+        noise: delta, color: tinycolor.fromRatio({
         r: delta, g: delta, b: delta
       }).toHexString()});
     });
@@ -51,8 +51,10 @@
     let mz = 0, uz = 0;
     const simplex = new SimplexSampler('test');
     const simplex2 = new SimplexSampler('second');
+    const simplex3 = new SimplexSampler('third');
     const fbm = new FBMSampler(simplex);
     const fbm2 = new FBMSampler(simplex2);
+    const fbm3 = new FBMSampler(simplex3);
     let arr = new Array2D().forEach(w, h, (x, y, a) => {
       const noise = (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
       const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
@@ -62,21 +64,22 @@
     const radialArr = radialGradient(w, h);
     new Canvas(4, { element: $('#Radial'), w, h }).draw(radialArr.values);
 
-    const avgArr = new Array2D().forEach(w, h, (x, y, a) => {
+    const height = new Array2D().forEach(w, h, (x, y, a) => {
       const s = radialArr.getData(x, y).noise * 2 + arr.getData(x, y).noise;
       const avg  = s/3;
       let color;
-      if (avg < 0.25) {
+      /**if (avg < 0.25) {
         color = tinycolor('blue');
       } else if (avg > 0.8) {
         color = tinycolor.fromRatio({ r: avg/2, g: avg/2, b: avg })
       } else {
+      */
         color = tinycolor.fromRatio({ r: avg, g: avg, b: avg });
-      }
+      //}
 
       a.setData(x, y, { noise: avg, color : color.toHexString() });
     });
-    new Canvas(4, { element: $('#AVG'), w, h }).draw(avgArr.values);
+    new Canvas(4, { element: $('#AVG'), w, h }).draw(height.values);
 
     const  arrFBM2 = new Array2D().forEach(w, h, (x, y, a) => {
       const noise = (fbm2.getNoise(x* freq, y* freq) + 1)  / 2;
@@ -90,35 +93,65 @@
     const radialArr3 = radialGradient(w, h, 5, 5);
     new Canvas(4, { element: $('#Radial3'), w, h }).draw(radialArr3.values);
     const radialArr4 = new Array2D().forEach(w, h, (x, y, a) => {
-       const noise = (radialArr2.getData(x, y).noise - radialArr3.getData(x, y).noise + 1) / 2;
+       // const noise = (radialArr2.getData(x, y).noise - radialArr3.getData(x, y).noise );
+       const noise = (radialArr2.getData(x, y).noise - radialArr3.getData(x, y).noise*2 + 1) / 2;
        const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
        a.setData(x, y, { noise, color : color.toHexString() });
      });
      new Canvas(4, { element: $('#Radial4'), w, h }).draw(radialArr4.values);
 
      const moist = new Array2D().forEach(w, h, (x, y, a) => {
-        const noise = (arrFBM2.getData(x, y).noise + radialArr4.getData(x, y).noise * 2 ) / 3;
+        const noise = (arrFBM2.getData(x, y).noise + radialArr4.getData(x, y).noise*2 ) / 3;
         const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
         a.setData(x, y, { noise, color : color.toHexString() });
       });
       new Canvas(4, { element: $('#Moist'), w, h }).draw(moist.values);
-    const voronoi = new VoronoiSampler();
-    w = 128;
-    h = 128;
-    arr = new Array2D().forEach(w, h, (x, y, a) => {
-      ///const n1  = voronoi.voronoi2(x * freq, y * freq);
-      //const d = voronoi.voronoi(x * freq, y * freq);
-      //const distance = d.y - d.x;
-      //const n2 = 1 - smoothstep(0.0, 0.05 , distance);
 
-      const vd = voronoi.voronoiDistance(x * freq, y * freq);
-      const n = 1.0 - smoothstep(0.0,0.1, vd);
-      const color = tinycolor.fromRatio({ r: n, g: n, b: n });
-      a.setData(x, y, { color : color.toHexString() });
+    const linear = linearGradient(w, h);
+    const  arrFBM3 = new Array2D().forEach(w, h, (x, y, a) => {
+      const noise = (fbm3.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
     });
-    const $canvas3 = $('#canvas3');
-    new Canvas(4, { createElement: true, w, h }).appendTo($canvas3).draw(arr.values);
+    new Canvas(4, { element: $('#FBM3'), w, h }).draw(arrFBM3.values);
+    new Canvas(4, { element: $('#Linear'), w, h }).draw(linear.values);
 
+    const temp = new Array2D().forEach(w, h, (x, y, a) => {
+       const noise = (arrFBM3.getData(x, y).noise + linear.getData(x, y).noise * 2) / 3;
+       const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+       a.setData(x, y, { noise, color : color.toHexString() });
+     });
+     new Canvas(4, { element: $('#Temp'), w, h }).draw(temp.values);
+     const tempHeight = new Array2D().forEach(w, h, (x, y, a) => {
+        const noise = (temp.getData(x, y).noise - height.getData(x, y).noise / 2) ;
+        const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+        a.setData(x, y, { noise, color : color.toHexString() });
+      });
+      new Canvas(4, { element: $('#TempHeight'), w, h }).draw(tempHeight.values);
+      const heightcol = new Array2D().forEach(w, h, (x, y, a) => {
+         const noise = height.getData(x, y).noise;
+         let color;
+         if (noise < 0.15) {
+           color = tinycolor('darkblue')
+         } else if (noise < 0.3) {
+           color = tinycolor('blue')
+         } else if (noise < 0.35) {
+           color = tinycolor('yellow')
+         } else if (noise < 0.5) {
+           color = tinycolor('green')
+         } else if (noise < 0.7) {
+           color = tinycolor('darkgreen')
+         } else if (noise < 0.8) {
+           color = tinycolor('red')
+         } else if (noise < 0.83) {
+           color = tinycolor('darkred')
+         } else {
+
+           color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+         }
+         a.setData(x, y, { noise, color : color.toHexString() });
+       });
+       new Canvas(4, { element: $('#HeightCol'), w, h }).draw(heightcol.values);
   });
 
   </script>
@@ -126,7 +159,7 @@
 <body>
   <!-- https://timetocode.tumblr.com/post/93970694121/volcanic-map-generation-step-by-step -->
 <div id="canvas1" class="flex-stage">
-  <p>FBM + Radial</p>
+  <p>Elevation</p>
   <canvas id="FBM"></canvas>
   <p>+</p>
   <canvas id="Radial"></canvas>
@@ -134,7 +167,7 @@
   <canvas id="AVG"></canvas>
 </div>
 <div id="canvas2" class="flex-stage">
-  <p>FBM + Radial</p>
+  <p>Moist</p>
   <canvas id="FBM2"></canvas>
   <p>+</p>
   <canvas id="Radial2"></canvas>
@@ -143,7 +176,16 @@
   <canvas id="Moist"></canvas>
 </div>
 <div id="canvas3" class="flex-stage">
-  <p>Voronoi Correct border width</p>
+  <p>Temp</p>
+  <canvas id="FBM3"></canvas>
+  <p>+</p>
+  <canvas id="Linear"></canvas>
+  <canvas id="Temp"></canvas>
+  <canvas id="TempHeight"></canvas>
+</div>
+<div id="canvas4" class="flex-stage">
+  <p>Results</p>
+  <canvas id="HeightCol"></canvas>
 </div>
 
 </body>
