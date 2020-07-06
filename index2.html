@@ -15,6 +15,48 @@
   <script type="text/javascript" src="./js/main.js"></script>
   <script type="text/javascript">
 
+  const colors = {
+    tropRain: '#8CAF98',
+    tropSeasonal: '9AC394',
+    tempRain: '9ABA97',
+    tempDecid: 'A5BF99',
+    grassland: '#B8CD9A',
+    subtropDesert: '#E3D6BB',
+    tempDesert: '#DEE3BF',
+    shrubland: '#B7C2AE',
+    taiga: '#C2CBAE',
+    bare: '#ADADAD',
+    scorched: '#878787',
+    tundra: '#D6D6AD',
+    snow: '#FFF',
+    basalt: '#DCDCDC',
+    rock: '#CCC',
+    swamp: '#8B4513',
+    sand: '#ffff00'
+  };
+
+  // col: 1 to 6 wet
+  // row: 1 to altitude (temperature)
+  const matrix = [
+    ['subtropDesert', 'grassland', 'tropSeasonal', 'tropRain'],
+    ['tempDesert', 'grassland', 'tempDecid', 'tempRain'],
+    ['tempDesert', 'shrubland', 'taiga'],
+    ['scorched', 'bare', 'tundra', 'snow']
+  ]
+
+  // Alt: ocean / beach / plains / hills / mountain
+  // temp: Cold / Med / high
+  // moist: Dry / Med / Wet
+
+
+  // beach: depends on moist: basalt warm  - rock cold  / sand cold & warm / swamp
+  // plains: desert dry: hot: subtropDesert else tempDesert / shrubland dry - grassland med-warm / pine-taiga cold - tempforest med - swamp-fungal warm
+  // hills: Sandstone desert / shrubland semidry / pine-taiga cold - rainforest warm
+  // mountains: basalt-scorched / barerock / tundra / snow
+
+
+  // fngal: wet, altitude
+
   function linearGradient(w, h) {
     return new Array2D().forEach(w, h, (x, y, a) => {
       const delta = y / h;
@@ -127,29 +169,60 @@
         const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
         a.setData(x, y, { noise, color : color.toHexString() });
       });
+      let minM = 1;
       new Canvas(4, { element: $('#TempHeight'), w, h }).draw(tempHeight.values);
       const heightcol = new Array2D().forEach(w, h, (x, y, a) => {
          const noise = height.getData(x, y).noise;
+         const moisture = moist.getData(x, y).noise;
+         if (moisture < minM) minM = moisture;
+         const temperature = tempHeight.getData(x, y).noise;
          let color;
+
          if (noise < 0.15) {
-           color = tinycolor('darkblue')
+           color = tinycolor('darkblue').toHexString()
          } else if (noise < 0.3) {
-           color = tinycolor('blue')
+           color = tinycolor('blue').toHexString()
          } else if (noise < 0.35) {
-           color = tinycolor('yellow')
+           if (moisture < 0.25) {
+             if (temperature < 0.5) {
+               color = colors.rock
+             } else {
+               color = colors.basalt;
+             }
+           } else if (moisture > 0.6  ) {
+             color = colors.swamp;
+           } else {
+             color = colors.sand;
+           }
          } else if (noise < 0.5) {
-           color = tinycolor('green')
+           if (moisture > 0.6) {
+             color = tinycolor('blue').toHexString();
+           } else if (moisture < 0.25){
+             if (temperature > 0.6) {
+               color = colors.subtropDesert;
+             } else {
+               color = colors.tempDesert;
+             }
+           } else {
+             color = tinycolor('green').toHexString();
+           }
          } else if (noise < 0.7) {
-           color = tinycolor('darkgreen')
+          if (temperature < 0.1) {
+             color = tinycolor('white').toHexString();
+           } else if (moisture < 0.25){
+             color = tinycolor('darkorange').toHexString();
+           } else {
+             color = tinycolor('darkgreen').toHexString();
+           }
          } else if (noise < 0.8) {
-           color = tinycolor('red')
+           color = tinycolor('red').toHexString()
          } else if (noise < 0.83) {
-           color = tinycolor('darkred')
+           color = tinycolor('darkred').toHexString()
          } else {
 
            color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
          }
-         a.setData(x, y, { noise, color : color.toHexString() });
+         a.setData(x, y, { noise, color : color });
        });
        new Canvas(4, { element: $('#HeightCol'), w, h }).draw(heightcol.values);
   });
@@ -157,6 +230,35 @@
   </script>
 </head>
 <body>
+  <!--
+
+Whittaker http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/
+For all land polygons, I started with the Whittaker diagram and adapted it to my needs:
+
+Elevation
+Zone	Moisture Zone
+6
+(wet)	5	4	3	2	1
+(dry)
+4
+(high)	SNOW	TUNDRA	BARE	SCORCHED
+3	TAIGA	SHRUBLAND	TEMPERATE DESERT
+2	TEMPERATE RAIN FOREST	TEMPERATE DECIDUOUS FOREST	GRASSLAND	TEMPERATE DESERT
+1
+(low)	TROPICAL RAIN FOREST	TROPICAL SEASONAL FOREST	GRASSLAND	SUBTROPICAL DESERT
+
+
+  Combine moisture map with water map...
+   Lowering the moisture level near the sea encourages the generation of beaches and sand.
+
+Height <= 0.25	Height <= 0.50	Height <= 0.75	Height <= 1.00
+Moisture <= 0.25	Subtropical Desert	Grassland	Tropical Seasonal Forest	Tropical Rain Forest
+Moisture <= 0.50	Temperate Desert	Grassland	Temperate Decidous Forest	Temperate Rain Forest
+Moisture <= 0.75	Temperate Desert	Shrubland	Taiga	Taiga
+Moisture <= 1.00	Scorched land	Bare Land	Tundra	Snow
+
+http://www-cs-students.stanford.edu/~amitp/game-programming/polygon-map-generation/
+  -->
   <!-- https://timetocode.tumblr.com/post/93970694121/volcanic-map-generation-step-by-step -->
 <div id="canvas1" class="flex-stage">
   <p>Elevation</p>
