@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NoiseTest</title>
+  <link rel="stylesheet"  type="text/css"  href="css/main.css">
+  <script
+  src="https://code.jquery.com/jquery-3.3.1.min.js"
+  integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+  crossorigin="anonymous"></script>
+  <script type="text/javascript" src="./js/simplex-noise.js"></script>
+  <script type="text/javascript" src="./js/noise.samplers.js"></script>
+  <script type="text/javascript" src="js/tinycolor.js"></script>
+  <script type="text/javascript" src="./js/array2d.js"></script>
+  <script type="text/javascript" src="./js/canvas.js"></script>
+  <script type="text/javascript" src="./js/main.js"></script>
+  <script type="text/javascript">
+
+  function xmur3(str) {
+    for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353),
+        h = h << 13 | h >>> 19;
+    return function() {
+        h = Math.imul(h ^ h >>> 16, 2246822507);
+        h = Math.imul(h ^ h >>> 13, 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+    }
+  }
+
+  function sfc32(a, b, c, d) {
+    return function() {
+      a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+      var t = (a + b) | 0;
+      a = b ^ b >>> 9;
+      b = c + (c << 3) | 0;
+      c = (c << 21 | c >>> 11);
+      d = d + 1 | 0;
+      t = t + d | 0;
+      c = c + t | 0;
+      return (t >>> 0) / 4294967296;
+    }
+}
+
+  $(document).ready(function() {
+    const seed = xmur3('test');
+    const random = sfc32(seed(), seed(), seed(), seed());
+
+
+  class PoissonData {
+    constructor(sampler, rand) {
+      this.rand = rand;
+      this.sampler = sampler;
+      this.gridData = new Array(sampler.gridWidth * sampler.gridHeight);
+      this.pointQueue = [];
+      this.firstPoint = true;
+    }
+
+    dist2(x1, y1, x2, y2) {
+      return ((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1));
+    }
+
+    createNewPoint(x, y) {
+      const point = new Vector2(x, y);
+      var index = Math.floor(x / this.sampler.cellSize) + Math.floor(y / this.sampler.cellSize) * this.sampler.gridWidth;
+      this.gridData[index] = point;
+      this.pointQueue.push(point);
+      return point;
+    }
+
+    allPoints() {
+      var point = undefined;
+      var result = [];
+      while (true) {
+        point = this.nextPoint();
+        if (point === undefined) {
+          break;
+        }
+        else {
+          result.push(point);
+        }
+      }
+      return result;
+    }
+
+    nextPoint() {
+      var x = 0
+      var y = 0;
+      if (this.firstPoint) {
+        this.firstPoint = false;
+        x = this.sampler.wmin + (this.sampler.wmax - this.sampler.wmin) * this.rand();
+        y = this.sampler.hmin + (this.sampler.wmax - this.sampler.hmin) * this.rand();
+        return this.createNewPoint(x, y);
+      }
+      var idx = 0, distance = 0, angle = 0
+      while (this.pointQueue.length > 0) {
+        idx = (this.pointQueue.length * this.rand()) | 0;
+        for (var i = 0; i < this.sampler.maxTries; i++) {
+          distance = this.sampler.radius * (this.rand() + 1);
+          angle = 2*Math.PI * this.rand();
+          x = this.pointQueue[idx].x + distance*Math.cos(angle);
+          y = this.pointQueue[idx].y + distance*Math.sin(angle);
+          if (this.isValidPoint(x, y)) {
+            return this.createNewPoint(x, y);
+          }
+        }
+        this.pointQueue.splice(idx, 1);
+      }
+      return undefined;
+    }
+
+    isValidPoint(x, y) {
+      if (x < this.sampler.wmin || x > this.sampler.wmax || y < this.sampler.hmin || y > this.sampler.hmax) {
+        return false;
+      }
+      var col = Math.floor((x - this.sampler.wmin) / this.sampler.cellSize);
+      var row = Math.floor((y - this.sampler.hmin) / this.sampler.cellSize);
+      var idx = 0, i = 0, j = 0;
+      for (i = col-2; i <= col+2; i++) {
+        for (j = row-2; j <= row+2; j++) {
+          if (i >= 0 && i < this.sampler.gridWidth && j >= 0 && j < this.sampler.gridHeight) {
+            idx = i + (j * this.sampler.gridWidth);
+            if (this.gridData[idx] &&
+
+              this.dist2(x, y, this.gridData[idx].x, this.gridData[idx].y) <= (this.sampler.radius*this.sampler.radius)) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+  }
+
+  class PoissonGrid {
+    constructor(radius, maxTries, wmin, wmax, hmin, hmax) {
+      this.radius = radius ? radius : 1;
+      this.maxTries = maxTries ? maxTries : 30;
+      this.cellSize =  this.radius * Math.SQRT1_2;
+      this.cellSize =  this.radius * Math.SQRT1_2;
+      this.wmin = wmin ? wmin  : 0;
+      this.wmax = wmax ? wmax  : 0;
+      this.hmin = hmin ? hmin : 0;
+      this.hmax = hmax ? hmax : 0;
+      this.gridWidth = Math.ceil((this.wmax - this.wmin) / this.cellSize);
+      this.gridHeight = Math.ceil((this.hmax - this.hmin)/ this.cellSize);
+    }
+  }
+
+
+
+
+
+  //const all = allPoints();
+
+
+
+
+  const sampler = new PoissonGrid(24, 30, 1, 127, 1, 127);
+  const data = new PoissonData(sampler, random);
+  const all = data.allPoints();
+
+  const arr = new Array2D();
+  all.forEach(v => {
+    arr.setData(Math.floor(v.x), Math.floor(v.y), { color: '#AA0000' });
+  });
+  const w = sampler.wmax + sampler.wmin + 1;
+  const h = sampler.hmax   + sampler.hmin + 1;
+  arr.forEach(w, h, (x, y, a) => {
+    const d = a.getData(x, y);
+    if (!d || !d.color) {
+      a.setData(x, y, { color : '#111111' });
+    }
+  });
+  new Canvas(4, { element: $('#FBM'), w, h }).draw(arr.values);
+
+
+
+
+  });
+
+  </script>
+</head>
+<body>
+<div id="canvas1" class="flex-stage">
+  <canvas id="FBM"></canvas>
+  <canvas id="Billow3"></canvas>
+  <canvas id="Ridge3"></canvas>
+</div>
+
+</body>
+</html>

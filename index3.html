@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>NoiseTest</title>
+  <link rel="stylesheet"  type="text/css"  href="css/main.css">
+  <script
+  src="https://code.jquery.com/jquery-3.3.1.min.js"
+  integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+  crossorigin="anonymous"></script>
+  <script type="text/javascript" src="./js/simplex-noise.js"></script>
+  <script type="text/javascript" src="./js/noise.samplers.js"></script>
+  <script type="text/javascript" src="js/tinycolor.js"></script>
+  <script type="text/javascript" src="./js/array2d.js"></script>
+  <script type="text/javascript" src="./js/canvas.js"></script>
+  <script type="text/javascript" src="./js/main.js"></script>
+  <script type="text/javascript">
+
+  const wScale = 6;
+    let w = 64;
+    let h = 64;
+    const freq  = 1 / 20;
+    let mz = 0, uz = 0;
+
+  function warp(sampler, source, freq, v2, v1) {
+    if (!v1) v1 = new Vector2(0, 0);
+    if (!v2) v2 = new Vector2(5.2, 1.3);
+    const q1 = sampler.getNoise((source.x + v1.x) * freq, (source.y + v1.y) * freq);
+    const q2 = sampler.getNoise(( source.x + v2.x) * freq, ( source.y + v2.y) * freq);
+    return sampler.getNoise((source.x + wScale * q1) * freq, (source.y + wScale * q2) * freq);
+  }
+
+  function warpVector(sampler, source, freq, v2, v1) {
+    if (!v1) v1 = new Vector2(0, 0);
+    if (!v2) v2 = new Vector2(5.2, 1.3);
+    const q1 = sampler.getNoise((source.x + v1.x) * freq, (source.y + v1.y) * freq);
+    const q2 = sampler.getNoise(( source.x + v2.x) * freq, ( source.y + v2.y) * freq);
+    return new Vector2((source.x + wScale * q1) * freq , (source.y + wScale * q2) * freq);
+  }
+
+  function dualWarp(sampler, source, freq) {
+    const s1 = warpVector(sampler, source, freq);
+    const source2 = source.add(s1.mult(wScale));
+    const s2 = warpVector(sampler, source2, freq, new Vector2(8.3,2.8), new Vector2(1.7,9.2));
+    const result = s1.add(s2.mult(wScale));
+    return sampler.getNoise(result.x * freq , result.y* freq);
+  }
+
+  /**
+   * https://www.iquilezles.org/www/articles/warp/warp.htm
+   * float pattern( in vec2 p )
+{
+    vec2 q = vec2( fbm( p + vec2(0.0,0.0) ),
+                   fbm( p + vec2(5.2,1.3) ) );
+
+    vec2 r = vec2( fbm( p + 4.0*q + vec2(1.7,9.2) ),
+                   fbm( p + 4.0*q + vec2(8.3,2.8) ) );
+
+    return fbm( p + 4.0*r );
+}
+   */
+
+  function fillWater(w, h, sourcArr, level){
+    return new Array2D().forEach(w, h, (x, y, a) => {
+
+      const noise = sourcArr.getData(x, y).noise;
+      let color;
+      if (noise < level){
+        color = tinycolor.fromRatio({ r: 0, g: 0, b: noise });
+
+      } else {
+        color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+
+      }
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+  }
+
+  $(document).ready(function() {
+    const simplex = new SimplexSampler('test');
+    const simplex2 = new SimplexSampler('second');
+    const simplex3 = new SimplexSampler('third');
+    const fbm = new FBMSampler(simplex);
+    const fbm2 = new FBMSampler(simplex2);
+    const fbm3 = new FBMSampler(simplex3);
+    let arr = new Array2D().forEach(w, h, (x, y, a) => {
+      const noise = (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    new Canvas(4, { element: $('#FBM'), w, h }).draw(arr.values);
+
+    const billowArr3 = new Array2D().forEach(w, h, (x, y, a) => {
+
+      const noise = Math.abs((arr.getData(x, y).noise * 2)  - 1);
+      // (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    new Canvas(4, { element: $('#Billow3'), w, h }).draw(billowArr3.values);
+    const ridgeArr3 = new Array2D().forEach(w, h, (x, y, a) => {
+
+      const noise = 1 - Math.abs( (arr.getData(x, y).noise * 2)  - 1);
+      // (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    new Canvas(4, { element: $('#Ridge3'), w, h }).draw(ridgeArr3.values);
+
+    let min = 20, max = -20;
+    const warpedArr = new Array2D().forEach(w, h, (x, y, a) => {
+      const av = new Vector2(x, y);
+      const noise = (warp(fbm, av, freq) + 1) / 2;
+      if( noise < min) min = noise;
+      if(noise > max) max = noise;
+      // (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    console.log(min, max);
+    new Canvas(4, { element: $('#FBM2'), w, h }).draw(warpedArr.values);
+    const warpedArr2 = new Array2D().forEach(w, h, (x, y, a) => {
+      const av = new Vector2(x, y);
+      const noise = (dualWarp(fbm, av, freq) + 1) / 2;
+      // (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    new Canvas(4, { element: $('#FBM3'), w, h }).draw(warpedArr2.values);
+    const billowArr = new Array2D().forEach(w, h, (x, y, a) => {
+
+      const noise = Math.abs((warpedArr.getData(x, y).noise * 2)  - 1);
+      // (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    new Canvas(4, { element: $('#Billow1'), w, h }).draw(billowArr.values);
+    const ridgeArr = new Array2D().forEach(w, h, (x, y, a) => {
+
+      const noise = 1 - Math.abs( (warpedArr.getData(x, y).noise * 2)  - 1);
+      // (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    new Canvas(4, { element: $('#Ridge1'), w, h }).draw(ridgeArr.values);
+    const billowArr2 = new Array2D().forEach(w, h, (x, y, a) => {
+
+      const noise = Math.abs((warpedArr2.getData(x, y).noise * 2)  - 1);
+      // (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    new Canvas(4, { element: $('#Billow2'), w, h }).draw(billowArr2.values);
+    const ridgeArr2 = new Array2D().forEach(w, h, (x, y, a) => {
+
+      const noise = 1 - Math.abs( (warpedArr2.getData(x, y).noise * 2)  - 1);
+      // (fbm.getNoise(x* freq, y* freq) + 1)  / 2;
+      const color = tinycolor.fromRatio({ r: noise, g: noise, b: noise });
+      a.setData(x, y, { noise, color : color.toHexString() });
+    });
+    new Canvas(4, { element: $('#Ridge2'), w, h }).draw(ridgeArr2.values);
+    new Canvas(4, { element: $('#Water1'), w, h }).draw(fillWater(w, h, billowArr2, 0.3).values);
+    new Canvas(4, { element: $('#Water2'), w, h }).draw(fillWater(w, h, ridgeArr2, 0.5).values);
+
+  });
+
+  </script>
+</head>
+<body>
+  <h1>Domain warping, Billow and Ridge Noise</h1>
+<div id="canvas1" class="flex-stage">
+  <div>FBM</div>
+  <canvas id="FBM"></canvas>
+  <canvas id="Billow3"></canvas>
+  <canvas id="Ridge3"></canvas>
+</div>
+<div id="canvas2" class="flex-stage">
+  <div>Domain Warping</div>
+  <canvas id="FBM2"></canvas>
+  <canvas id="Billow1"></canvas>
+  <canvas id="Ridge1"></canvas>
+</div>
+<div id="canvas3" class="flex-stage">
+  <div>Dual Domain Warping</div>
+  <canvas id="FBM3"></canvas>
+  <canvas id="Billow2"></canvas>
+  <canvas id="Water1"></canvas>
+  <canvas id="Ridge2"></canvas>
+  <canvas id="Water2"></canvas>
+</div>
+<div id="canvas4" class="flex-stage">
+  <canvas id="HeightCol"></canvas>
+</div>
+
+</body>
+</html>
